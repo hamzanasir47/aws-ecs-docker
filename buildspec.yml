@@ -13,7 +13,7 @@ phases:
       - aws --version
       - echo $AWS_DEFAULT_REGION
       - $(aws ecr get-login --no-include-email --region us-east-1)
-      - REPOSITORY_URI=<your_account_id>.dkr.ecr.us-east-1.amazonaws.com/aws-ecs-docker
+      - REPOSITORY_URI=341877051563.dkr.ecr.us-east-1.amazonaws.com/aws-ecs-docker-repo
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:=latest}
   build:
@@ -29,5 +29,11 @@ phases:
       - docker push $REPOSITORY_URI:$IMAGE_TAG
       - echo write definitions file...
       - printf '[{"name":"exp-code-pipeline","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+      - echo "Running Docker container for StackHawk scan..."
+      - docker run -d --name myapp -p 8080:8080 341877051563.dkr.ecr.us-east-1.amazonaws.com/aws-ecs-docker-repo:$IMAGE_TAG
+      - echo "Waiting for the application to start..."
+      - sleep 30
+      - echo "Running StackHawk scan..."
+      - docker run --network host -e SHAWK_API_KEY=$STACKHAWK_API_KEY -v $(pwd):/hawk stackhawk/stackhawk-cli scan -t http://localhost:8080
 artifacts:
   files: imagedefinitions.json
